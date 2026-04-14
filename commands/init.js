@@ -37,13 +37,18 @@ async function runInit() {
       validate: v => v.trim() !== '' || 'Required'
     },
     {
-      type: 'editor',
-      name: 'googleServiceAccountRaw',
-      message: 'Paste your Google Service Account JSON (opens editor):',
-      default: existingConfig?.googleServiceAccountRaw || '{}',
-      validate: (v) => {
-        try { JSON.parse(v); return true; } catch { return 'Must be valid JSON'; }
-      }
+      type: 'input',
+      name: 'googleClientId',
+      message: 'Google OAuth2 Client ID (from GCloud → Credentials → OAuth 2.0):',
+      default: existingConfig?.googleClientId || '',
+      validate: v => v.trim() !== '' || 'Required'
+    },
+    {
+      type: 'password',
+      name: 'googleClientSecret',
+      message: 'Google OAuth2 Client Secret:',
+      default: existingConfig?.googleClientSecret || '',
+      validate: v => v.trim() !== '' || 'Required'
     },
     {
       type: 'password',
@@ -75,15 +80,17 @@ async function runInit() {
     githubUsername: answers.githubUsername.trim(),
     githubToken: answers.githubToken.trim(),
     clickupToken: answers.clickupToken.trim(),
-    googleServiceAccount: JSON.parse(answers.googleServiceAccountRaw),
-    googleServiceAccountRaw: answers.googleServiceAccountRaw,
+    googleClientId: answers.googleClientId?.trim() || existingConfig?.googleClientId || null,
+    googleClientSecret: answers.googleClientSecret?.trim() || existingConfig?.googleClientSecret || null,
+    googleRefreshToken: existingConfig?.googleRefreshToken || null,
     vercelToken: answers.vercelToken.trim(),
     expoToken: answers.expoToken.trim(),
     expoUsername: answers.expoUsername.trim(),
     // Preserve cached IDs from previous init
     clickupWorkspaceId: existingConfig?.clickupWorkspaceId,
     clickupSpaceId: existingConfig?.clickupSpaceId,
-    masterSheetId: existingConfig?.masterSheetId
+    masterSheetId: existingConfig?.masterSheetId,
+    masterSheetUrl: existingConfig?.masterSheetUrl
   };
 
   saveConfig(config);

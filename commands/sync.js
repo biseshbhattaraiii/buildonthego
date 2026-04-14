@@ -30,38 +30,44 @@ async function syncAll() {
     return;
   }
 
-  // Sync master sheet
-  const masterSpin = ora('Syncing master Google Sheet...').start();
-  try {
-    const { url } = await syncMasterSheet();
-    const config = getConfig();
-    if (!config.masterSheetUrl) {
-      config.masterSheetUrl = url;
-      saveConfig(config);
+  const config = getConfig();
+  const googleConfigured = config.googleRefreshToken || (config.googleClientId && config.googleClientSecret);
+
+  if (googleConfigured) {
+    const masterSpin = ora('Syncing master Google Sheet...').start();
+    try {
+      const { url } = await syncMasterSheet();
+      if (!config.masterSheetUrl) {
+        config.masterSheetUrl = url;
+        saveConfig(config);
+      }
+      masterSpin.succeed(`Master sheet synced: ${chalk.underline(url)}`);
+    } catch (e) {
+      masterSpin.fail(`Master sheet sync failed: ${e.message}`);
     }
-    masterSpin.succeed(`Master sheet synced: ${chalk.underline(url)}`);
-  } catch (e) {
-    masterSpin.fail(`Master sheet sync failed: ${e.message}`);
+  } else {
+    console.log(chalk.dim('  ↷ Google Sheets skipped (not configured)'));
   }
 
-  console.log(`\nSyncing ${startups.length} startup(s)...\n`);
+  console.log(`\nSyncing ${startups.length} startup(s) to ClickUp...\n`);
   for (const startup of startups) {
-    await syncOne(startup);
+    await syncOne(startup, googleConfigured);
   }
 }
 
-async function syncOne(startup) {
+async function syncOne(startup, googleConfigured = false) {
   const spin = ora(`Syncing ${startup.Name}...`).start();
   try {
-    // If no sheet URL yet, create one
-    if (!startup.SheetURL) {
-      const { url, spreadsheetId } = await createStartupSheet(startup.Name, startup);
+    if (googleConfigured && !startup.SheetURL) {
+      const { url } = await createStartupSheet(startup.Name, startup);
       updateStartup(startup.Slug, { SheetURL: url });
       startup.SheetURL = url;
-      startup.sheetId = spreadsheetId;
     }
 
-    spin.succeed(`${startup.Name} synced → ${chalk.underline(startup.SheetURL)}`);
+    const msg = startup.SheetURL
+      ? `${startup.Name} synced → ${chalk.underline(startup.SheetURL)}`
+      : `${startup.Name} synced (local only — Google Sheets not configured)`;
+    spin.succeed(msg);
   } catch (e) {
     spin.fail(`${startup.Name} sync failed: ${e.message}`);
   }

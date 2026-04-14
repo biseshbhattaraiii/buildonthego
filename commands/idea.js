@@ -143,23 +143,28 @@ async function runIdea(opts = {}) {
     clickupSpin.fail(`ClickUp setup failed: ${e.message}`);
   }
 
-  // Step 9: Google Sheet for this startup
-  const sheetSpin = ora('Creating Google Sheet for this startup...').start();
+  // Step 9: Google Sheet for this startup (only if Google is configured)
+  const config = getConfig();
   let sheetUrl = '';
-  try {
-    const updatedStartup = { ...startup, ClickUpURL: clickupUrl };
-    const { url } = await createStartupSheet(basicAnswers.name, updatedStartup);
-    sheetUrl = url;
-    sheetSpin.succeed(`Sheet created: ${chalk.underline(url)}`);
-  } catch (e) {
-    sheetSpin.fail(`Google Sheet creation failed: ${e.message}`);
+  if (config.googleRefreshToken || (config.googleClientId && config.googleClientSecret)) {
+    const sheetSpin = ora('Creating Google Sheet for this startup...').start();
+    try {
+      const updatedStartup = { ...startup, ClickUpURL: clickupUrl };
+      const { url } = await createStartupSheet(basicAnswers.name, updatedStartup);
+      sheetUrl = url;
+      sheetSpin.succeed(`Sheet created: ${chalk.underline(url)}`);
+    } catch (e) {
+      sheetSpin.fail(`Google Sheet creation failed: ${e.message}`);
+    }
+  } else {
+    console.log(chalk.dim('  ↷ Google Sheets skipped (not configured — run buildonthego init to add)'));
   }
 
   // Step 10: Update tracker with URLs
   if (clickupUrl || sheetUrl) {
     const { updateStartup } = require('../lib/tracker');
     updateStartup(slug, { ClickUpURL: clickupUrl, SheetURL: sheetUrl });
-    await syncMasterSheet();
+    try { await syncMasterSheet(); } catch { /* skip if Google not configured */ }
   }
 
   // Done
