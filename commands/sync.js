@@ -4,7 +4,7 @@ const ora = require('ora');
 const { slugify } = require('../lib/config');
 const { getStartup, getAllStartups, updateStartup } = require('../lib/tracker');
 const { syncMasterSheet, createStartupSheet, addRowToStartupSheet } = require('../lib/sheets');
-const { createTask } = require('../lib/clickup');
+const { createTask, getOrCreateList, getTasks, setupStartupInClickUp } = require('../lib/clickup');
 const { getConfig, saveConfig } = require('../lib/config');
 
 async function runSync(opts = {}) {
@@ -32,6 +32,7 @@ async function syncAll() {
 
   const config = getConfig();
   const googleConfigured = config.googleRefreshToken || (config.googleClientId && config.googleClientSecret);
+  const clickupConfigured = !!(config.clickupToken && config.clickupSpaceId);
 
   if (googleConfigured) {
     const masterSpin = ora('Syncing master Google Sheet...').start();
@@ -49,13 +50,18 @@ async function syncAll() {
     console.log(chalk.dim('  ↷ Google Sheets skipped (not configured)'));
   }
 
-  console.log(`\nSyncing ${startups.length} startup(s) to ClickUp...\n`);
+  if (!clickupConfigured) {
+    console.log(chalk.dim('  ↷ ClickUp skipped (not configured)'));
+  }
+
+  console.log(`\nSyncing ${startups.length} startup(s)...\n`);
   for (const startup of startups) {
-    await syncOne(startup, googleConfigured);
+    await syncOne(startup, googleConfigured, clickupConfigured);
   }
 }
 
-async function syncOne(startup, googleConfigured = false) {
+async function syncOne(startup, googleConfigured = false, clickupConfigured = false) {
+  const config = getConfig();
   const spin = ora(`Syncing ${startup.Name}...`).start();
   try {
     if (googleConfigured && !startup.SheetURL) {
@@ -64,9 +70,18 @@ async function syncOne(startup, googleConfigured = false) {
       startup.SheetURL = url;
     }
 
-    const msg = startup.SheetURL
-      ? `${startup.Name} synced → ${chalk.underline(startup.SheetURL)}`
-      : `${startup.Name} synced (local only — Google Sheets not configured)`;
+    if (clickupConfigured && !startup.ClickUpURL) {
+      const { listUrl } = await setupStartupInClickUp(startup.Name, startup.Description, startup.Type);
+      updateStartup(startup.Slug, { ClickUpURL: listUrl });
+      startup.ClickUpURL = listUrl;
+    }
+
+    const parts = [];
+    if (startup.SheetURL) parts.push(`Sheet: ${chalk.underline(startup.SheetURL)}`);
+    if (startup.ClickUpURL) parts.push(`ClickUp: ${chalk.underline(startup.ClickUpURL)}`);
+    const msg = parts.length
+      ? `${startup.Name} synced → ${parts.join('  ')}`
+      : `${startup.Name} synced (local only)`;
     spin.succeed(msg);
   } catch (e) {
     spin.fail(`${startup.Name} sync failed: ${e.message}`);
