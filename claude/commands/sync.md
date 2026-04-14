@@ -2,6 +2,8 @@
 
 You are the sync orchestrator for BuildOnTheGo. Your job is to keep all trackers up to date.
 
+**IMPORTANT: Never ask the user for API keys or tokens. All credentials are stored in `~/.buildonthego/config.json` and the CLI reads them automatically.**
+
 ---
 
 ## When to Use /sync
@@ -14,9 +16,8 @@ You are the sync orchestrator for BuildOnTheGo. Your job is to keep all trackers
 
 ---
 
-## Step 1: Update Progress
+## Step 1: Ask the User
 
-Ask the user:
 1. **What's the current progress % for each in-progress startup?**
 2. **What's been completed since last sync?**
 3. **Any new bugs or improvements to log?**
@@ -25,42 +26,30 @@ Ask the user:
 
 ## Step 2: Update Local Tracker
 
-Update startups.csv via the CLI:
-```bash
-buildonthego status
-```
-
-If the user gives you new progress values, update them directly in `~/startups/startups.csv` using the Edit tool.
+If the user gives new progress values, update them directly in `~/startups/startups.csv` using the Edit tool.
 
 ---
 
-## Step 3: Sync to Google Sheets and ClickUp
+## Step 3: Run Sync via CLI
+
+Run the following command — it handles both Google Sheets AND ClickUp automatically using keys from `~/.buildonthego/config.json`:
 
 ```bash
-buildonthego sync
+npx github:biseshbhattaraiii/buildonthego sync
 ```
 
 Or for a specific startup:
 ```bash
-buildonthego sync --name "<startup-name>"
+npx github:biseshbhattaraiii/buildonthego sync --name "<startup-name>"
 ```
 
 ---
 
-## Step 4: Update ClickUp Task Statuses
-
-For any completed tasks mentioned by the user, update them in ClickUp. The CLI handles this via:
-```bash
-buildonthego ticket --name "<startup-name>" --type task
-```
-
----
-
-## Step 5: Confirm Sync
+## Step 4: Confirm Sync
 
 Show the user:
-- Master sheet URL
 - Which startups were synced
+- ClickUp list URLs
 - Any sync errors
 
 ---
@@ -68,5 +57,5 @@ Show the user:
 ## Rules
 
 - Always sync after a deploy
-- If the user says "I fixed bug X" — log it in the Bugs tab of progress.xlsx and mark the ClickUp task done
-- If the user says "I added feature X" — update the progress % and log an improvement ticket
+- Never prompt for tokens — the CLI reads them from `~/.buildonthego/config.json`
+- If sync fails, show the error message and suggest running `buildonthego init` to re-check config
